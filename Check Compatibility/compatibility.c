@@ -19,16 +19,15 @@ int checkcompatiblity(comp_t progress, char guess[]){
     for(i=0; i < DIM; i++)
         temp[i]=0;
     for(i=0; guess[i] != '\0'; i++){
-        if((*(progress.bestguess+i) != NOTHING) && (guess[i] != *(progress.bestguess+i)))
+        if((*(progress.bestguess+i) != NOTHING) && (guess[i] != *((progress.bestguess)+i)))
             return 0;
         temp[toindex(guess[i])]++;     
     }
     for(i=0; i < DIM; i++){
-        if(temp[i] < counters[i])
-            return 0;
-        if(temp[i] > counters[i] && definitive[i]==1)
+        if((temp[i] < progress.counters[i]) || (temp[i] > progress.counters[i] && progress.definitive[i]==1))
             return 0;      
     }
     return 1;
 }
+
 
