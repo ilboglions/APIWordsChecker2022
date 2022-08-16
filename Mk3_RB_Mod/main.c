@@ -38,9 +38,10 @@ typedef struct compatibility_s{
     int8_t definitive[DIM];
     int correctocc[DIM];
     char * bestguess;
-    unsigned long long * wrongposarr;
     int len;
+    unsigned long long * wrongposarr;
 }comp_t;
+
 typedef struct node_s{
     int8_t color;
     struct node_s * left;
@@ -49,6 +50,8 @@ typedef struct node_s{
     int8_t valid;
     char word[];
 }node_t;
+
+comp_t progress;
 
 
 //PROTOTYPES
@@ -83,10 +86,10 @@ void printnumber(int);
 
 //GAME FUNCTIONS
 int commdetect(char []);
-int verifyattempt (char [], char [], comp_t *, char []);
-void resethistory(comp_t * );
-int checkcompatiblity(comp_t * , char []);
-int filterwords(node_t * , comp_t *);
+int verifyattempt (char [], char [], char []);
+void resethistory();
+int checkcompatibility(char []);
+int filterwords(node_t *);
 
 
 //MAIN FUNCTION//
@@ -103,7 +106,6 @@ int main(int argc, char * argv[]){
     int numwords;
     int8_t state;
     int8_t laststate; 
-    comp_t progress;
     char tmp[LENMAX+1]; 
     node_t * root = NULL;
 
@@ -134,10 +136,10 @@ int main(int argc, char * argv[]){
             if(command == NEWGAME){
                 state = NEWGAME;
                 resettree(root);
-                resethistory(&progress);
+                resethistory();
             }   
             else if(command == PRINTREMAINING){
-                useless = filterwords(root, &progress);
+                useless = filterwords(root);
                 printtree(root);
             }
             else if(command == ADDWORDS){
@@ -152,10 +154,10 @@ int main(int argc, char * argv[]){
         else{
             if(state == INGAME){
                 if(find(root, inputstr)){
-                    res = verifyattempt(correct, inputstr, &progress, outstr);
+                    res = verifyattempt(correct, inputstr, outstr);
                     if(res==0){
                         attempts--;
-                        numwords = filterwords(root, &progress);    
+                        numwords = filterwords(root);    
                         printnumber(numwords);
                         useless = putchar_unlocked('\n');
                         if(attempts == 0){
@@ -188,7 +190,6 @@ int main(int argc, char * argv[]){
     deletetree(root);
     return 0;
 }
-
 
 //RB TREES FUNCTIONS
 node_t * insert(node_t * root, char * toins, int len){
@@ -465,7 +466,6 @@ void printnumber(int value){
     return;
 }
 
-
 //GAME FUNCTIONS
 int commdetect(char seq[]){ //WE MAKE THE ASSUMPTION THAT USER WILL ALWAYS INSERT A CORRECT INPUT COMMAND
     if(seq[1] == 'n')  //"+nuova_partita" NEW GAME
@@ -476,10 +476,10 @@ int commdetect(char seq[]){ //WE MAKE THE ASSUMPTION THAT USER WILL ALWAYS INSER
         return 2;
     return 3; //"+inserisci_fine" END OF ADDING NEW WORDS
 }
-int verifyattempt (char correct[], char guess[], comp_t * progress, char outstr[]){
+int verifyattempt (char correct[], char guess[], char outstr[]){
     int8_t res;
     int8_t i;
-    int len = progress->len;
+    int len = progress.len;
     int localcounter[DIM];
     int mincounter[DIM];
     unsigned long long notinthatpos;
@@ -488,7 +488,7 @@ int verifyattempt (char correct[], char guess[], comp_t * progress, char outstr[
 
 
     for(i=0; i < DIM; i++){  //RESET SITUATION
-        localcounter[i]=progress->correctocc[i];
+        localcounter[i]=progress.correctocc[i];
         mincounter[i]=0;
         exact[i]=0;
     }   
@@ -496,7 +496,7 @@ int verifyattempt (char correct[], char guess[], comp_t * progress, char outstr[
     for(i=0; i < len; i++){
         if(guess[i] == correct[i]){
             outstr[i]=RIGHT;
-            progress->bestguess[i]=correct[i];
+            progress.bestguess[i]=correct[i];
             localcounter[toindex(guess[i])]--;
         }
         else{
@@ -514,7 +514,7 @@ int verifyattempt (char correct[], char guess[], comp_t * progress, char outstr[
         if(outstr[i] != RIGHT){
             notinthatpos = 1;
             notinthatpos = notinthatpos << tmp;
-            progress->wrongposarr[i] = progress->wrongposarr[i] | notinthatpos;
+            progress.wrongposarr[i] = progress.wrongposarr[i] | notinthatpos;
             localcounter[tmp]--;
             if(localcounter[tmp] >= 0){
                 outstr[i]=WRONGPOS;
@@ -530,32 +530,32 @@ int verifyattempt (char correct[], char guess[], comp_t * progress, char outstr[
         }
     }
     for(i=0; i < DIM; i++){
-        if(progress->definitive[i] == 0){
-            if(mincounter[i] > progress->counters[i])
-                progress->counters[i]=mincounter[i];
-            progress->definitive[i] = exact[i];
+        if(progress.definitive[i] == 0){
+            if(mincounter[i] > progress.counters[i])
+                progress.counters[i]=mincounter[i];
+            progress.definitive[i] = exact[i];
         }
     }
     printstring(outstr);
     return 0;
 
 }
-void resethistory(comp_t * progress){
+void resethistory(){
     int i;
 
     for(i=0; i < DIM; i++){
-        progress->counters[i]=0;
-        progress->definitive[i]=0;
-        progress->correctocc[i]=0;
+        progress.counters[i]=0;
+        progress.definitive[i]=0;
+        progress.correctocc[i]=0;
     }
-    for(i=0; i < progress->len; i++){
-        progress->bestguess[i] = NOTHING;
-        progress->wrongposarr[i] = 0;
+    for(i=0; i < progress.len; i++){
+        progress.bestguess[i] = NOTHING;
+        progress.wrongposarr[i] = 0;
     }
-    progress->bestguess[progress->len] = '\0';
+    progress.bestguess[progress.len] = '\0';
     return;
 }
-int checkcompatiblity(comp_t * progress, char guess[]){
+int checkcompatibility(char guess[]){
 
     int temp[DIM];
     int i;
@@ -565,32 +565,31 @@ int checkcompatiblity(comp_t * progress, char guess[]){
         temp[i]=0;
     for(i=0;  guess[i] != '\0'; i++){
         index =toindex(guess[i]);
-        if((progress->bestguess[i] != NOTHING) && (guess[i] != progress->bestguess[i])){
-            return 0;
+        if((progress.bestguess[i] != NOTHING) && (guess[i] != progress.bestguess[i])){
+            return INCOMPATIBLE;
         }
         temp[index]++; 
-        tmp = progress->wrongposarr[i] >> index;
+        tmp = progress.wrongposarr[i] >> index;
         if(tmp & 1){
-            return 0;  
+            return INCOMPATIBLE;  
         }   
     }
     
     for(i=0; i < DIM; i++){
-        if((temp[i] < progress->counters[i]) || (temp[i] != progress->counters[i] && progress->definitive[i]==1)){
-            return 0; 
+        if((temp[i] < progress.counters[i]) || (temp[i] != progress.counters[i] && progress.definitive[i]==1)){
+            return INCOMPATIBLE; 
         }     
     }
-    return 1;
+    return COMPATIBLE;
 }
-int filterwords(node_t * root, comp_t * progress){
+int filterwords(node_t * root){
     int res = 0;
     if(root){
         if(root->valid == COMPATIBLE){
-            res = checkcompatiblity(progress, root->word);
-            if(res == 0)
-                root->valid = INCOMPATIBLE;
+            res = checkcompatibility(root->word);
+            root->valid = res; //1 IF COMPATIBLE, 0 ELSE
         }
-        res = res + filterwords(root->left, progress) + filterwords(root->right, progress);
+        res = res + filterwords(root->left) + filterwords(root->right);
     }
     return res;
 }
