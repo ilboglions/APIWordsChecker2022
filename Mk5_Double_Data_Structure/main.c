@@ -38,6 +38,7 @@ typedef struct compatibility_s{
     int8_t definitive[DIM];
     int correctocc[DIM];
     char * bestguess;
+    char * correct;
     int len;
     unsigned long long * wrongposarr;
 }comp_t;
@@ -58,7 +59,7 @@ typedef struct bst_s{
 }bst_t;
 
 comp_t progress;
-bst_t * stillvalids = NULL;
+node_t * stillvalids = NULL;
 
 
 //PROTOTYPES
@@ -71,16 +72,10 @@ node_t * leftrotate(node_t * , node_t * );
 node_t * rightrotate(node_t * , node_t * );
 int find(node_t *, char * );
 void deletetree(node_t *);
-
-
-//BST
-node_t * insertboth(node_t *,char[], int);
-bst_t * successor(bst_t * );
-bst_t * min(bst_t * );
-bst_t * bstinsert(bst_t * , char [] );
-void printbst(bst_t * );
-bst_t * deleteonbst(bst_t * , bst_t * );
-void deletebst(bst_t * );
+node_t * deleteonrb(node_t * , node_t * );
+void printtree(node_t *);
+node_t * min(node_t * );
+node_t * insertboth(node_t *  ,char [], int );
 
 
 //CONVERTION FUNCTIONS
@@ -102,8 +97,9 @@ int commdetect(char []);
 int verifyattempt (char [], char [], char []);
 void resethistory();
 int checkcompatibility(char []);
-int filterwords(bst_t *);
-void firstfilterwords(node_t *, int *);
+int filterwords(node_t *, char []);
+void firstfilterwords(node_t *, int *, char []);
+int iscompatiblenow(char [], char []);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,7 +152,10 @@ int main(int argc, char * argv[]){
                 resethistory();
             }   
             else if(command == PRINTREMAINING){
-                printbst(stillvalids);
+                if(firstattempt)
+                    printtree(root);
+                else
+                    printtree(stillvalids);
             }
             else if(command == ADDWORDS){
                 laststate=state;
@@ -175,11 +174,11 @@ int main(int argc, char * argv[]){
                         attempts--;
                            
                         if(firstattempt){
-                            firstfilterwords(root, &numwords);    
+                            firstfilterwords(root, &numwords, inputstr);    
                             firstattempt=0;
                         }
                         else{
-                            numwords = filterwords(stillvalids); 
+                            numwords = filterwords(stillvalids, inputstr); 
                         }
                         printnumber(numwords);
                         useless = putchar_unlocked('\n');
@@ -211,17 +210,18 @@ int main(int argc, char * argv[]){
                 for(i=0; correct[i] != '\0'; i++){
                     progress.correctocc[toindex(correct[i])]++;
                 }
+                progress.correct = correct;
                 readstr(tmp, LENMAX);
                 attempts = stringtoint(tmp);
                 state = INGAME; 
                 numwords=0;
-                deletebst(stillvalids);
+                deletetree(stillvalids);
                 stillvalids = NULL;
                 firstattempt=1;
             }
         }
     }
-    deletebst(stillvalids);
+    deletetree(stillvalids);
     deletetree(root);
     return 0;
 }
@@ -379,69 +379,8 @@ void deletetree(node_t * root){
     }
     return;
 }
-
-//BST FUNCTIONS
-node_t * insertboth(node_t * root ,char toins[], int len){
-    if(checkcompatibility(toins))
-        stillvalids = bstinsert(stillvalids, toins);
-    return insert(root, toins, len);
-}
-bst_t * successor(bst_t * elem){
-    bst_t * father;
-    if(elem->right)
-        return min(elem->right);
-    father = elem->p;
-    while(father && father->right == elem){
-        elem=father;
-        father = father->p;
-    }
-    return father;
-}
-bst_t * min(bst_t * elem){
-    while(elem->left)
-        elem=elem->left;
-    return elem;
-}
-bst_t * bstinsert(bst_t * root, char toins[]){
-    int len = progress.len;
-    bst_t * new=NULL,* tmp,* last;
-    do{
-        new=malloc(sizeof(bst_t) + len + 1);
-    }while(new == NULL);
-    new->left=NULL;
-    new->right=NULL;
-    stringcopy(new->word, toins);
-    if(!root){
-        new->p=NULL;
-        return new;
-    }
-    tmp = root;
-    do{
-        last=tmp;
-        if(!strcomp(tmp->word, toins)){
-            tmp = tmp->right;
-        }
-        else{
-            tmp = tmp->left;
-        }
-    }while(tmp);
-    if(!strcomp(last->word, toins))
-        last->right = new;
-    else
-        last->left = new;
-    new->p=last;
-    return root;
-}
-void printbst(bst_t * root){
-    if(root){
-        printbst(root->left);
-        printstring(root->word);
-        printbst(root->right);
-    }
-    return;
-}
-bst_t * deleteonbst(bst_t * root, bst_t * x){
-    bst_t * todel;
+node_t * deleteonrb(node_t * root, node_t * x){
+    node_t * todel;
     if(root && x){
         if(x->left == NULL){
             if(x->p){
@@ -488,15 +427,24 @@ bst_t * deleteonbst(bst_t * root, bst_t * x){
     }
     return root;
 }
-void deletebst(bst_t * root){
+void printtree(node_t * root){
     if(root){
-        deletebst(root->left);
-        deletebst(root->right);
-        free(root);
+        printtree(root->left);
+        printstring(root->word);
+        printtree(root->right);
     }
     return;
 }
-
+node_t * min(node_t * elem){
+    while(elem->left)
+        elem=elem->left;
+    return elem;
+}
+node_t * insertboth(node_t * root ,char toins[], int len){
+    if(checkcompatibility(toins))
+        stillvalids = insert(stillvalids, toins, len);
+    return insert(root, toins, len);
+}
 //CONVERSION FUNCTIONS
 int stringtoint(char seq[]){
     int res=0;
@@ -719,32 +667,77 @@ int checkcompatibility(char guess[]){
     }
     return COMPATIBLE;
 }
-int filterwords(bst_t * root){
+int filterwords(node_t * root, char wrongword[]){
     int res = 0;
     int tmp;
     if(root){
-        tmp = checkcompatibility(root->word);
-        res = tmp + filterwords(root->left) + filterwords(root->right);
+        tmp = iscompatiblenow(root->word, wrongword);
+        res = tmp + filterwords(root->left, wrongword) + filterwords(root->right, wrongword);
         if(!tmp){
-            stillvalids = deleteonbst(stillvalids, root);
+            stillvalids = deleteonrb(stillvalids, root);
         }
     }
     return res;
 }
-void firstfilterwords(node_t * root, int * numwords){
+void firstfilterwords(node_t * root, int * numwords, char wrongword[]){
     int res;
     if(root){
-        res = checkcompatibility(root->word);
+        res = iscompatiblenow(root->word, wrongword);
         * numwords = (*numwords) + res;
         if(res){
-            stillvalids = bstinsert(stillvalids, root->word);
+            stillvalids = insert(stillvalids, root->word, progress.len);
         }
-        firstfilterwords(root->left, numwords);
-        firstfilterwords(root->right, numwords);
+        firstfilterwords(root->left, numwords,wrongword);
+        firstfilterwords(root->right, numwords, wrongword);
     }
     return;
 }
+int iscompatiblenow(char guess[], char wrongword[]){
+        int i;
+        int temp[DIM];
+        char * bestguess = progress.bestguess;
+        char * correct = progress.correct;
+        int * counters = progress.counters;
+        int8_t * definitive = progress.definitive;
+        int len = progress.len;
+        int index;
 
+        for(i=0; i < len; i++){
+            index = toindex(guess[i]);
+            temp[index]=0;
+            if(bestguess[i] != NOTHING){
+                index = toindex(correct[i]);
+                temp[index]=0;
+            }
+            index = toindex(wrongword[i]);
+            temp[index]=0;
+            if((guess[i] == wrongword[i]) && (wrongword[i] != correct[i])){
+                return INCOMPATIBLE;
+            }
+        }
+        for(i=0;  i < len; i++){
+            index =toindex(guess[i]);
+            if((bestguess[i] != NOTHING) && (guess[i] != correct[i])){
+                return INCOMPATIBLE;
+            }
+            temp[index]++;  
+        }
+        for(i=0;  i < len; i++){
+           index = toindex(guess[i]);
+           if((temp[index] < counters[index]) || (temp[index] != counters[index] && definitive[index]==1)){
+                return INCOMPATIBLE;
+           }
+           if(bestguess[i] != NOTHING){
+            index = toindex(correct[i]);
+            if((temp[index] < counters[index]) || (temp[index] != counters[index] && definitive[index]==1)) 
+                    return INCOMPATIBLE; 
+           }
+           index = toindex(wrongword[i]);
+           if((temp[index] < counters[index]) || (temp[index] != counters[index] && definitive[index]==1)) 
+                return INCOMPATIBLE;
+        }
+        return COMPATIBLE;
+}
 
 
 
